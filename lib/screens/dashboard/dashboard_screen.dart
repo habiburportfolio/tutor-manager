@@ -9,6 +9,7 @@ import '../../utils/due_calculator.dart';
 import '../payments/add_payment_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../meetings/meetings_screen.dart';
+import '../settings/settings_screen.dart';
 import '../students/group_contact_screen.dart';
 import 'student_dues_list.dart';
 
@@ -31,11 +32,28 @@ class DashboardScreen extends StatelessWidget {
       totalDue += DueCalculator.due(s, paid);
     }
 
+    double totalActiveIncome = 0;
+    double totalInactiveIncome = 0;
+    for (final p in finance.payments) {
+      final student = students.byId(p.studentId);
+      if (student != null && student.isActive) {
+        totalActiveIncome += p.amount;
+      } else {
+        totalInactiveIncome += p.amount;
+      }
+    }
+
     final trend = finance.trend(ReportRange.daily, 7);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tutor Manager'),
+        title: Row(
+          children: [
+            Image.asset('assets/logo.png', height: 32, width: 32),
+            const SizedBox(width: 12),
+            const Text('Tutor Manager'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.groups_rounded),
@@ -60,6 +78,28 @@ class DashboardScreen extends StatelessWidget {
               context,
               MaterialPageRoute(builder: (_) => const ExpensesScreen()),
             ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'settings') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -123,6 +163,28 @@ class DashboardScreen extends StatelessWidget {
                       Icons.report_gmailerrorred_rounded,
                       kAccentOrange,
                     ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _statCard(
+                    'Active Student Income',
+                    fmtMoney(totalActiveIncome),
+                    Icons.person_outline_rounded,
+                    kAccentGreen,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _statCard(
+                    'Inactive Student Income',
+                    fmtMoney(totalInactiveIncome),
+                    Icons.person_off_outlined,
+                    Colors.grey,
                   ),
                 ),
               ],

@@ -6,6 +6,7 @@ import '../../providers/student_provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../providers/homework_provider.dart';
 import '../../providers/meeting_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../services/backup_service.dart';
 import '../../utils/theme.dart';
 
@@ -126,6 +127,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Text(
             'Configure default behavior for the app\'s main features.',
             style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          Consumer<LanguageProvider>(
+            builder: (context, langProv, child) {
+              return DropdownButtonFormField<String>(
+                initialValue: langProv.currentLang,
+                decoration: InputDecoration(labelText: langProv.t('language')),
+                items: const [
+                  DropdownMenuItem(value: 'en', child: Text('English')),
+                  DropdownMenuItem(value: 'bn', child: Text('বাংলা')),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    langProv.setLanguage(v);
+                  }
+                },
+              );
+            },
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(

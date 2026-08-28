@@ -169,7 +169,7 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
           ],
           const SizedBox(height: 16),
           Text(
-            'Attachments (image / PDF / DOC / Word)',
+            'Attachments (Images, PDF, DOC, Word)',
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
@@ -205,8 +205,8 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
           ),
           CheckboxListTile(
             value: _viaShare,
-            title: const Text('WhatsApp / Messenger / Share'),
-            subtitle: const Text('Opens share sheet with attached files'),
+            title: const Text('WhatsApp, Telegram, Facebook, Messenger'),
+            subtitle: const Text('Opens share menu to select any social app'),
             onChanged: (v) => setState(() => _viaShare = v ?? false),
           ),
           const SizedBox(height: 20),

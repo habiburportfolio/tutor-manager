@@ -20,6 +20,7 @@ class StudentsScreen extends StatefulWidget {
 class _StudentsScreenState extends State<StudentsScreen> {
   String _query = '';
   String? _filterClassId;
+  String _sortBy = 'Name (A-Z)';
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +31,18 @@ class _StudentsScreenState extends State<StudentsScreen> {
     var list = studentsProv.search(_query);
     if (_filterClassId != null) {
       list = list.where((s) => s.classId == _filterClassId).toList();
+    }
+
+    if (_sortBy == 'Name (A-Z)') {
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } else if (_sortBy == 'Roll Number') {
+      list.sort((a, b) {
+        final aRoll = int.tryParse(a.roll) ?? 999999;
+        final bRoll = int.tryParse(b.roll) ?? 999999;
+        return aRoll.compareTo(bRoll);
+      });
+    } else if (_sortBy == 'Admission Date') {
+      list.sort((a, b) => a.admissionDate.compareTo(b.admissionDate));
     }
 
     return Scaffold(
@@ -57,12 +70,34 @@ class _StudentsScreenState extends State<StudentsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search by name, roll, or phone',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: (v) => setState(() => _query = v),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search...',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 1,
+                  child: DropdownButtonFormField<String>(
+                    value: _sortBy,
+                    decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 8)),
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'Name (A-Z)', child: Text('Name', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(value: 'Roll Number', child: Text('Roll', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(value: 'Admission Date', child: Text('Date', style: TextStyle(fontSize: 13))),
+                    ],
+                    onChanged: (v) => setState(() => _sortBy = v ?? 'Name (A-Z)'),
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(

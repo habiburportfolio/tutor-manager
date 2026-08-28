@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/payment.dart';
 import '../models/student.dart';
@@ -22,9 +23,13 @@ class ReceiptService {
     final doc = pw.Document();
     final dateFmt = DateFormat('dd MMM yyyy, hh:mm a');
 
+    final fontData = await rootBundle.load('assets/fonts/NotoSansBengali-Regular.ttf');
+    final ttf = pw.Font.ttf(fontData);
+
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a5,
+        theme: pw.ThemeData.withFont(base: ttf),
         build: (context) {
           return pw.Container(
             padding: const pw.EdgeInsets.all(24),
