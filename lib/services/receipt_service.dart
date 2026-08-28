@@ -25,8 +25,11 @@ class ReceiptService {
     final doc = pw.Document();
     final dateFmt = DateFormat('dd MMM yyyy, hh:mm a');
 
-    final fontData = await rootBundle.load('assets/fonts/NotoSansBengali-Regular.ttf');
-    final ttf = pw.Font.ttf(fontData);
+    final regularData = await rootBundle.load('assets/fonts/Kalpurush.ttf');
+    final regularFont = pw.Font.ttf(regularData);
+
+    final boldData = await rootBundle.load('assets/fonts/HindSiliguri-Bold.ttf');
+    final boldFont = pw.Font.ttf(boldData);
 
     final box = DBService.box(DBService.settingsBox);
     final customLogoBase64 = box.get('customLogoBase64', defaultValue: '');
@@ -47,7 +50,13 @@ class ReceiptService {
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a5,
-        theme: pw.ThemeData.withFont(base: ttf),
+        theme: pw.ThemeData.withFont(
+          base: regularFont,
+          bold: boldFont,
+          italic: regularFont,
+          boldItalic: boldFont,
+          fontFallback: [regularFont, boldFont],
+        ),
         build: (context) {
           return pw.Container(
             padding: const pw.EdgeInsets.all(24),
@@ -66,24 +75,26 @@ class ReceiptService {
                           pw.Text(
                             centerName,
                             style: pw.TextStyle(
-                              fontSize: 20,
+                              fontSize: 18,
                               fontWeight: pw.FontWeight.bold,
+                              font: boldFont,
                             ),
                           ),
-                      if (centerAddress.isNotEmpty)
-                        pw.Text(
-                          centerAddress,
-                          style: const pw.TextStyle(fontSize: 10),
-                        ),
-                      if (centerPhone.isNotEmpty)
-                        pw.Text(
-                          'Phone: $centerPhone',
-                          style: const pw.TextStyle(fontSize: 10),
-                        ),
+                          if (centerAddress.isNotEmpty)
+                            pw.Text(
+                              centerAddress,
+                              style: pw.TextStyle(fontSize: 10, font: regularFont),
+                            ),
+                          if (centerPhone.isNotEmpty)
+                            pw.Text(
+                              'Phone: $centerPhone',
+                              style: pw.TextStyle(fontSize: 10, font: regularFont),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ]),
-              ),
+                ),
               pw.SizedBox(height: 12),
                 pw.Divider(),
                 pw.Center(
@@ -92,34 +103,39 @@ class ReceiptService {
                     style: pw.TextStyle(
                       fontSize: 16,
                       fontWeight: pw.FontWeight.bold,
+                      font: boldFont,
                     ),
                   ),
                 ),
                 pw.SizedBox(height: 12),
-                _row('Receipt No', payment.receiptNo),
-                _row('Date', dateFmt.format(payment.date)),
+                _row('Receipt No', payment.receiptNo, font: regularFont, boldFont: boldFont),
+                _row('Date', dateFmt.format(payment.date), font: regularFont, boldFont: boldFont),
                 pw.SizedBox(height: 8),
-                _row('Student Name', student.name),
-                _row('Roll', student.roll),
-                _row('Class', className),
-                _row('Section', sectionName),
-                _row('Guardian', student.guardianName),
-                _row('Phone', student.guardianPhone),
-                if (payment.monthFor != null) _row('Month', payment.monthFor!),
+                _row('Student Name', student.name, font: regularFont, boldFont: boldFont),
+                _row('Roll', student.roll, font: regularFont, boldFont: boldFont),
+                _row('Class', className, font: regularFont, boldFont: boldFont),
+                _row('Section', sectionName, font: regularFont, boldFont: boldFont),
+                _row('Guardian', student.guardianName, font: regularFont, boldFont: boldFont),
+                _row('Phone', student.guardianPhone, font: regularFont, boldFont: boldFont),
+                if (payment.monthFor != null) _row('Month', payment.monthFor!, font: regularFont, boldFont: boldFont),
                 pw.SizedBox(height: 8),
                 pw.Divider(),
-                _row('Payment Method', payment.method),
+                _row('Payment Method', payment.method, font: regularFont, boldFont: boldFont),
                 _row(
                   'Amount Paid',
                   'BDT ${payment.amount.toStringAsFixed(2)}',
                   bold: true,
+                  font: regularFont,
+                  boldFont: boldFont,
                 ),
                 _row(
                   'Remaining Due',
                   'BDT ${totalDueAfter.toStringAsFixed(2)}',
+                  font: regularFont,
+                  boldFont: boldFont,
                 ),
                 if (payment.note != null && payment.note!.isNotEmpty)
-                  _row('Note', payment.note!),
+                  _row('Note', payment.note!, font: regularFont, boldFont: boldFont),
                 pw.SizedBox(height: 32),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -129,7 +145,7 @@ class ReceiptService {
                         pw.Container(width: 120, child: pw.Divider()),
                         pw.Text(
                           'Guardian Signature',
-                          style: const pw.TextStyle(fontSize: 9),
+                          style: pw.TextStyle(fontSize: 9, font: regularFont),
                         ),
                       ],
                     ),
@@ -138,7 +154,7 @@ class ReceiptService {
                         pw.Container(width: 120, child: pw.Divider()),
                         pw.Text(
                           'Authorized Signature',
-                          style: const pw.TextStyle(fontSize: 9),
+                          style: pw.TextStyle(fontSize: 9, font: regularFont),
                         ),
                       ],
                     ),
@@ -154,18 +170,28 @@ class ReceiptService {
     return doc.save();
   }
 
-  static pw.Widget _row(String label, String value, {bool bold = false}) {
+  static pw.Widget _row(
+    String label,
+    String value, {
+    bool bold = false,
+    required pw.Font font,
+    required pw.Font boldFont,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 2),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(label, style: const pw.TextStyle(fontSize: 11)),
+          pw.Text(
+            label,
+            style: pw.TextStyle(fontSize: 11, font: font),
+          ),
           pw.Text(
             value,
             style: pw.TextStyle(
               fontSize: 11,
               fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              font: bold ? boldFont : font,
             ),
           ),
         ],

@@ -69,6 +69,16 @@ flutter:
     - assets/logo.png
 
   fonts:
+    - family: Kalpurush
+      fonts:
+        - asset: assets/fonts/Kalpurush.ttf
+    - family: HindSiliguri
+      fonts:
+        - asset: assets/fonts/HindSiliguri-Regular.ttf
+        - asset: assets/fonts/HindSiliguri-Bold.ttf
+          weight: 700
     - family: NotoSansBengali
       fonts:
         - asset: assets/fonts/NotoSansBengali-Regular.ttf
+        - asset: assets/fonts/NotoSansBengali-Bold.ttf
+          weight: 700

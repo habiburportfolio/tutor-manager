@@ -10,6 +10,8 @@ const Color kBg = Color(0xFFF5F7FB);
 ThemeData buildAppTheme() {
   final base = ThemeData(
     useMaterial3: true,
+    fontFamily: 'HindSiliguri',
+    fontFamilyFallback: const ['Kalpurush', 'NotoSansBengali'],
     colorScheme: ColorScheme.fromSeed(
       seedColor: kPrimary,
       brightness: Brightness.light,
