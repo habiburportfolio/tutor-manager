@@ -5,6 +5,7 @@ import '../../providers/finance_provider.dart';
 import '../../utils/theme.dart';
 import '../../utils/formatters.dart';
 import '../settings/settings_screen.dart';
+import '../../widgets/app_logo.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -49,7 +50,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: Row(
+          children: [
+            const AppLogo(size: 32),
+            const SizedBox(width: 12),
+            const Text('Reports'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),

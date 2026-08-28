@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/academic_provider.dart';
 import '../../providers/student_provider.dart';
@@ -96,6 +98,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _sectionHeader('Coaching Center Info'),
+          Row(
+            children: [
+              if (settings.customLogoBase64.isNotEmpty)
+                Image.memory(
+                  base64Decode(settings.customLogoBase64),
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.contain,
+                )
+              else
+                Image.asset('assets/logo.png', width: 50, height: 50, fit: BoxFit.contain),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final picker = ImagePicker();
+                  final image = await picker.pickImage(source: ImageSource.gallery);
+                  if (image != null) {
+                    final bytes = await image.readAsBytes();
+                    final base64Str = base64Encode(bytes);
+                    await settings.saveCustomLogo(base64Str);
+                  }
+                },
+                icon: const Icon(Icons.image),
+                label: const Text('Change Logo'),
+              ),
+              if (settings.customLogoBase64.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => settings.saveCustomLogo(''),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _centerNameCtrl,
             decoration: const InputDecoration(labelText: 'Center Name'),

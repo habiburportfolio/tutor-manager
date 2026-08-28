@@ -12,6 +12,7 @@ import '../meetings/meetings_screen.dart';
 import '../settings/settings_screen.dart';
 import '../students/group_contact_screen.dart';
 import 'student_dues_list.dart';
+import '../../widgets/app_logo.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -49,7 +50,7 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('assets/logo.png', height: 32, width: 32),
+            const AppLogo(size: 32),
             const SizedBox(width: 12),
             const Text('Tutor Manager'),
           ],

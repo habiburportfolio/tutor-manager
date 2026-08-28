@@ -5,6 +5,7 @@ import '../../providers/academic_provider.dart';
 import '../../utils/formatters.dart';
 import '../../utils/theme.dart';
 import 'class_detail_screen.dart';
+import '../../widgets/app_logo.dart';
 
 class ClassesScreen extends StatelessWidget {
   const ClassesScreen({super.key});
@@ -14,7 +15,15 @@ class ClassesScreen extends StatelessWidget {
     final academic = context.watch<AcademicProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Classes')),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            const AppLogo(size: 32),
+            const SizedBox(width: 12),
+            const Text('Classes'),
+          ],
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddClassDialog(context),
         child: const Icon(Icons.add),

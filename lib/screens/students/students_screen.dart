@@ -9,6 +9,7 @@ import '../../utils/due_calculator.dart';
 import 'add_edit_student_screen.dart';
 import 'student_detail_screen.dart';
 import 'group_contact_screen.dart';
+import '../../widgets/app_logo.dart';
 
 class StudentsScreen extends StatefulWidget {
   const StudentsScreen({super.key});
@@ -28,7 +29,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
     final academic = context.watch<AcademicProvider>();
     final finance = context.watch<FinanceProvider>();
 
-    var list = studentsProv.search(_query);
+    var list = studentsProv.search(_query).toList();
     if (_filterClassId != null) {
       list = list.where((s) => s.classId == _filterClassId).toList();
     }
@@ -47,7 +48,13 @@ class _StudentsScreenState extends State<StudentsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Students'),
+        title: Row(
+          children: [
+            const AppLogo(size: 32),
+            const SizedBox(width: 12),
+            const Text('Students'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.groups_rounded),

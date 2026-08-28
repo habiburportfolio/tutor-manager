@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/payment.dart';
 import '../models/student.dart';
+import '../services/db_service.dart';
 
 /// Generates a PDF money receipt for a payment and lets the user
 /// print / save / share it.
@@ -26,6 +28,22 @@ class ReceiptService {
     final fontData = await rootBundle.load('assets/fonts/NotoSansBengali-Regular.ttf');
     final ttf = pw.Font.ttf(fontData);
 
+    final box = DBService.box(DBService.settingsBox);
+    final customLogoBase64 = box.get('customLogoBase64', defaultValue: '');
+    pw.ImageProvider? logoImage;
+    
+    if (customLogoBase64.isNotEmpty) {
+      try {
+        final bytes = base64Decode(customLogoBase64);
+        logoImage = pw.MemoryImage(bytes);
+      } catch (_) {}
+    }
+
+    if (logoImage == null) {
+      final logoData = await rootBundle.load('assets/logo.png');
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    }
+
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a5,
@@ -37,15 +55,21 @@ class ReceiptService {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Center(
-                  child: pw.Column(
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
                     children: [
-                      pw.Text(
-                        centerName,
-                        style: pw.TextStyle(
-                          fontSize: 20,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
+                      pw.Image(logoImage!, width: 40, height: 40),
+                      pw.SizedBox(width: 12),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            centerName,
+                            style: pw.TextStyle(
+                              fontSize: 20,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
                       if (centerAddress.isNotEmpty)
                         pw.Text(
                           centerAddress,
@@ -58,8 +82,9 @@ class ReceiptService {
                         ),
                     ],
                   ),
-                ),
-                pw.SizedBox(height: 12),
+                ]),
+              ),
+              pw.SizedBox(height: 12),
                 pw.Divider(),
                 pw.Center(
                   child: pw.Text(

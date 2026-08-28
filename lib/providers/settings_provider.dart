@@ -116,6 +116,9 @@ class SettingsProvider extends ChangeNotifier {
   String get centerPhone => _box.get('centerPhone', defaultValue: '');
   String get centerAddress => _box.get('centerAddress', defaultValue: '');
 
+  // Custom App Logo (Base64 encoded string)
+  String get customLogoBase64 => _box.get('customLogoBase64', defaultValue: '');
+
   // ---------------- General app behavior settings ----------------
   /// Default value for the "Give money receipt now?" switch when collecting
   /// a new payment. Previously hardcoded to `true`; now configurable.
@@ -245,6 +248,11 @@ class SettingsProvider extends ChangeNotifier {
     await _box.put('centerName', name);
     await _box.put('centerPhone', phone);
     await _box.put('centerAddress', address);
+    notifyListeners();
+  }
+
+  Future<void> saveCustomLogo(String base64Str) async {
+    await _box.put('customLogoBase64', base64Str);
     notifyListeners();
   }
 }

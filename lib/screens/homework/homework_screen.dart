@@ -6,6 +6,7 @@ import '../../utils/theme.dart';
 import '../../utils/formatters.dart';
 import 'send_homework_screen.dart';
 import '../meetings/meetings_screen.dart';
+import '../../widgets/app_logo.dart';
 
 class HomeworkScreen extends StatelessWidget {
   const HomeworkScreen({super.key});
@@ -17,7 +18,13 @@ class HomeworkScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Homework'),
+        title: Row(
+          children: [
+            const AppLogo(size: 32),
+            const SizedBox(width: 12),
+            const Text('Homework'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.video_camera_front_rounded),
