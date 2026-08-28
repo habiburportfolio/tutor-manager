@@ -1,0 +1,66 @@
+name: flutter_app
+description: "Tutor Manager - Coaching Center Management App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management
+  provider: 6.1.5+1
+
+  # Local storage (document DB)
+  hive: 2.2.3
+  hive_flutter: 1.1.0
+  shared_preferences: 2.5.3
+
+  # Utilities
+  intl: ^0.20.2
+  uuid: ^4.5.1
+  path_provider: ^2.1.5
+
+  # Charts for reports
+  fl_chart: ^0.69.2
+
+  # PDF receipt generation
+  pdf: ^3.11.1
+  printing: ^5.13.4
+
+  # File attachments for homework (image/pdf/doc/word)
+  file_picker: ^8.1.7
+  image_picker: ^1.1.2
+
+  # Sharing via WhatsApp / Messenger / SMS / Email
+  share_plus: ^10.1.4
+  url_launcher: ^6.3.1
+
+  # Runtime permissions
+  permission_handler: ^11.3.1
+
+  # Networking (SMS gateway API, payment gateway API)
+  http: ^1.5.0
+
+  # Cryptography for Nagad RSA signature-based payment gateway
+  pointycastle: ^3.9.1
+  basic_utils: ^5.7.0
+
+  # WebView for embedded payment gateway checkout pages (bKash/Nagad/SSLCommerz)
+  webview_flutter: 4.13.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/
