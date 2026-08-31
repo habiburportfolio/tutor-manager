@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_provider.dart';
 import '../../providers/academic_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/contact_service.dart';
+import '../../services/share_service.dart';
 import '../../utils/theme.dart';
 
 /// Lets the coaching center staff pick "All Students" or a specific class
-/// (optionally narrowed to a section) and then, with one tap, either:
-///  - send a single SMS to the whole selected group at once (native
-///    multi-recipient `sms:` compose screen), or
-///  - call through the group one guardian at a time via a simple list
-///    (a real phone can only dial one number at a time, so "group call"
-///    is implemented as a fast one-tap-per-contact call list instead of a
-///    literal simultaneous conference call).
+/// (optionally narrowed to a section) and then quickly reach them via:
+///  - Group SMS
+///  - WhatsApp broadcast / direct chat
+///  - Telegram broadcast
+///  - Rapid Call List
 class GroupContactScreen extends StatefulWidget {
   const GroupContactScreen({super.key});
 
@@ -37,15 +37,13 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
   Widget build(BuildContext context) {
     final studentsProv = context.watch<StudentProvider>();
     final academic = context.watch<AcademicProvider>();
+    final settings = context.watch<SettingsProvider>();
 
     List<dynamic> candidates = studentsProv.students;
     if (_classId != null) {
       candidates = studentsProv.byClassSection(_classId!, _sectionId);
     }
 
-    // Default: select everyone in the current filtered group the first
-    // time (or whenever the filter changes) so "1-click" really means one
-    // tap once the group is chosen.
     if (!_selectionInitialized) {
       _selectedIds
         ..clear()
@@ -61,12 +59,12 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
         .where((s) => _selectedIds.contains(s.id))
         .toList();
     final selectedPhones = selectedStudents
-        .map((s) => s.guardianPhone as String)
+        .map((s) => (s.guardianPhone as String).isNotEmpty ? (s.guardianPhone as String) : (s.studentPhone as String? ?? ''))
         .where((p) => p.isNotEmpty)
         .toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Group Call / SMS')),
+      appBar: AppBar(title: const Text('Group Call, SMS & Social')),
       body: Column(
         children: [
           Padding(
@@ -76,7 +74,10 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
               children: [
                 DropdownButtonFormField<String?>(
                   initialValue: _classId,
-                  decoration: const InputDecoration(labelText: 'Class'),
+                  decoration: const InputDecoration(
+                    labelText: 'Class',
+                    prefixIcon: Icon(Icons.school_outlined),
+                  ),
                   items: [
                     const DropdownMenuItem<String?>(
                       value: null,
@@ -101,6 +102,7 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
                     initialValue: _sectionId,
                     decoration: const InputDecoration(
                       labelText: 'Section (optional = all)',
+                      prefixIcon: Icon(Icons.grid_view_rounded),
                     ),
                     items: [
                       const DropdownMenuItem<String?>(
@@ -123,10 +125,11 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _messageCtrl,
-                  maxLines: 3,
+                  maxLines: 2,
                   decoration: const InputDecoration(
-                    labelText: 'SMS Message',
-                    hintText: 'Type the message to send to the whole group…',
+                    labelText: 'Message to Broadcast',
+                    hintText: 'Type the message to send via SMS, WhatsApp, or Telegram…',
+                    prefixIcon: Icon(Icons.message_outlined),
                   ),
                 ),
               ],
@@ -170,24 +173,39 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
                     itemBuilder: (context, i) {
                       final s = candidates[i];
                       final selected = _selectedIds.contains(s.id);
+                      final phone = (s.guardianPhone as String).isNotEmpty
+                          ? (s.guardianPhone as String)
+                          : (s.studentPhone as String? ?? '');
+
                       return CheckboxListTile(
                         value: selected,
                         dense: true,
                         title: Text('${s.name} (Roll ${s.roll})'),
                         subtitle: Text(
-                          s.guardianPhone.isEmpty
-                              ? 'No phone number'
-                              : s.guardianPhone,
+                          phone.isEmpty ? 'No phone number' : phone,
                         ),
-                        secondary: IconButton(
-                          icon: const Icon(Icons.call, color: kAccentGreen),
-                          tooltip: 'Call this guardian',
-                          onPressed: s.guardianPhone.isEmpty
-                              ? null
-                              : () => ContactService.makePhoneCall(
+                        secondary: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (phone.isNotEmpty) ...[
+                              IconButton(
+                                icon: const Icon(Icons.call, color: Color(0xFF10B981), size: 20),
+                                tooltip: 'Call',
+                                onPressed: () => ContactService.makePhoneCall(context, phone),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.chat, color: Color(0xFF25D366), size: 20),
+                                tooltip: 'WhatsApp',
+                                onPressed: () => ContactService.openWhatsApp(
                                   context,
-                                  s.guardianPhone,
+                                  phone,
+                                  message: _messageCtrl.text.trim().isNotEmpty
+                                      ? _messageCtrl.text.trim()
+                                      : 'Hello from ${settings.centerName}',
                                 ),
+                              ),
+                            ],
+                          ],
                         ),
                         onChanged: (v) => setState(() {
                           if (v == true) {
@@ -203,31 +221,73 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+              padding: const EdgeInsets.all(12),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: selectedPhones.isEmpty
-                          ? null
-                          : () => ContactService.sendGroupSms(
-                              context,
-                              selectedPhones,
-                              body: _messageCtrl.text.trim(),
-                            ),
-                      icon: const Icon(Icons.sms_rounded),
-                      label: Text('SMS All (${selectedPhones.length})'),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: selectedPhones.isEmpty
+                              ? null
+                              : () => ContactService.sendGroupSms(
+                                  context,
+                                  selectedPhones,
+                                  body: _messageCtrl.text.trim(),
+                                ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                          ),
+                          icon: const Icon(Icons.sms_rounded, size: 18),
+                          label: Text('SMS (${selectedPhones.length})', style: const TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: selectedStudents.isEmpty
+                              ? null
+                              : () => ShareService.shareFiles(
+                                  text: _messageCtrl.text.trim().isNotEmpty
+                                      ? _messageCtrl.text.trim()
+                                      : 'Notice from ${settings.centerName}',
+                                ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF25D366),
+                          ),
+                          icon: const Icon(Icons.share_rounded, size: 18),
+                          label: const Text('WhatsApp / Share', style: TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: selectedStudents.isEmpty
-                          ? null
-                          : () => _openCallList(context, selectedStudents),
-                      icon: const Icon(Icons.call_rounded),
-                      label: const Text('Call List'),
-                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            ShareService.openTelegramChat(
+                              message: _messageCtrl.text.trim().isNotEmpty
+                                  ? _messageCtrl.text.trim()
+                                  : 'Notice from ${settings.centerName}',
+                            );
+                          },
+                          icon: const Icon(Icons.send_rounded, color: Color(0xFF0088CC), size: 18),
+                          label: const Text('Telegram', style: TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: selectedStudents.isEmpty
+                              ? null
+                              : () => _openCallList(context, selectedStudents, settings.centerName),
+                          icon: const Icon(Icons.call_rounded, color: Color(0xFF10B981), size: 18),
+                          label: const Text('Rapid Call List', style: TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -238,12 +298,15 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
     );
   }
 
-  void _openCallList(BuildContext context, List<dynamic> students) {
+  void _openCallList(BuildContext context, List<dynamic> students, String centerName) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
+        initialChildSize: 0.65,
         minChildSize: 0.3,
         maxChildSize: 0.9,
         expand: false,
@@ -252,8 +315,8 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Tap a guardian to call them one by one',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                'Tap to Call or WhatsApp each guardian one by one',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
             Expanded(
@@ -262,22 +325,39 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
                 itemCount: students.length,
                 itemBuilder: (ctx2, i) {
                   final s = students[i];
+                  final phone = (s.guardianPhone as String).isNotEmpty
+                      ? (s.guardianPhone as String)
+                      : (s.studentPhone as String? ?? '');
+
                   return ListTile(
                     leading: const Icon(Icons.person_outline),
                     title: Text(s.name as String),
                     subtitle: Text(
-                      (s.guardianPhone as String).isEmpty
-                          ? 'No phone number'
-                          : s.guardianPhone as String,
+                      phone.isEmpty ? 'No phone number' : phone,
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.call, color: kAccentGreen),
-                      onPressed: (s.guardianPhone as String).isEmpty
-                          ? null
-                          : () => ContactService.makePhoneCall(
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (phone.isNotEmpty) ...[
+                          IconButton(
+                            icon: const Icon(Icons.chat, color: Color(0xFF25D366)),
+                            onPressed: () => ContactService.openWhatsApp(
                               ctx2,
-                              s.guardianPhone as String,
+                              phone,
+                              message: _messageCtrl.text.trim().isNotEmpty
+                                  ? _messageCtrl.text.trim()
+                                  : 'Hello from $centerName regarding ${s.name}',
                             ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.call, color: Color(0xFF10B981)),
+                            onPressed: () => ContactService.makePhoneCall(
+                              ctx2,
+                              phone,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   );
                 },
@@ -289,3 +369,4 @@ class _GroupContactScreenState extends State<GroupContactScreen> {
     );
   }
 }
+

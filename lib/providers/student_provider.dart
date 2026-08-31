@@ -34,6 +34,8 @@ class StudentProvider extends ChangeNotifier {
     required String sectionId,
     required String guardianName,
     required String guardianPhone,
+    String? studentPhone,
+    List<String> subjectIds = const [],
     String? address,
     double monthlyFee = 0,
     String? notes,
@@ -47,6 +49,8 @@ class StudentProvider extends ChangeNotifier {
       sectionId: sectionId,
       guardianName: guardianName,
       guardianPhone: guardianPhone,
+      studentPhone: studentPhone,
+      subjectIds: subjectIds,
       address: address,
       monthlyFee: monthlyFee,
       admissionDate: admissionDate ?? DateTime.now(),
@@ -85,23 +89,42 @@ class StudentProvider extends ChangeNotifier {
         .where(
           (s) =>
               s.classId == classId &&
-              (sectionId == null || s.sectionId == sectionId),
+              (sectionId == null || sectionId.isEmpty || s.sectionId == sectionId),
         )
         .toList();
   }
 
-  List<Student> search(String query) {
+  List<Student> search(String query, {String? classId, String? sectionId}) {
     final q = query.trim().toLowerCase();
-    if (q.isEmpty) return students;
-    return _students
-        .where(
-          (s) =>
-              s.name.toLowerCase().contains(q) ||
-              s.roll.toLowerCase().contains(q) ||
-              s.guardianPhone.contains(q),
-        )
-        .toList();
+    return _students.where((s) {
+      if (classId != null && classId.isNotEmpty && s.classId != classId) {
+        return false;
+      }
+      if (sectionId != null && sectionId.isNotEmpty && s.sectionId != sectionId) {
+        return false;
+      }
+      if (q.isEmpty) return true;
+      final matchName = s.name.toLowerCase().contains(q);
+      final matchRoll = s.roll.toLowerCase().contains(q);
+      final matchGuardianPhone = s.guardianPhone.contains(q);
+      final matchStudentPhone = s.studentPhone?.contains(q) ?? false;
+      final matchGuardianName = s.guardianName.toLowerCase().contains(q);
+      final matchAddress = s.address?.toLowerCase().contains(q) ?? false;
+      return matchName || matchRoll || matchGuardianPhone || matchStudentPhone || matchGuardianName || matchAddress;
+    }).toList();
+  }
+
+  /// Specialized phone lookup
+  List<Student> searchByPhone(String phone) {
+    final clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (clean.isEmpty) return [];
+    return _students.where((s) {
+      final gClean = s.guardianPhone.replaceAll(RegExp(r'[^0-9]'), '');
+      final sClean = (s.studentPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+      return gClean.contains(clean) || sClean.contains(clean);
+    }).toList();
   }
 
   int get totalActiveStudents => _students.where((s) => s.isActive).length;
 }
+

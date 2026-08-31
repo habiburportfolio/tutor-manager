@@ -23,7 +23,6 @@ class StudentDetailScreen extends StatelessWidget {
     final academic = context.watch<AcademicProvider>();
     final finance = context.watch<FinanceProvider>();
     final settings = context.watch<SettingsProvider>();
-    final quickCallSmsEnabled = settings.enableQuickCallSms;
 
     final s = studentsProv.byId(studentId);
     if (s == null) {
@@ -41,27 +40,21 @@ class StudentDetailScreen extends StatelessWidget {
     final due = DueCalculator.due(s, totalPaid);
     final advance = DueCalculator.advance(s, totalPaid);
 
+    // Map enrolled subjects
+    final enrolledSubjectNames = s.subjectIds
+        .map((id) => academic.subjectById(id)?.name)
+        .whereType<String>()
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(s.name),
         actions: [
-          if (quickCallSmsEnabled) ...[
-            IconButton(
-              icon: const Icon(Icons.call_outlined),
-              tooltip: 'Call Guardian',
-              onPressed: s.guardianPhone.isEmpty
-                  ? null
-                  : () =>
-                        ContactService.makePhoneCall(context, s.guardianPhone),
-            ),
-            IconButton(
-              icon: const Icon(Icons.sms_outlined),
-              tooltip: 'Send SMS',
-              onPressed: s.guardianPhone.isEmpty
-                  ? null
-                  : () => ContactService.sendSms(context, s.guardianPhone),
-            ),
-          ],
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            tooltip: 'Save to Phone Contacts',
+            onPressed: () => _saveContact(context, s, settings.centerName),
+          ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             tooltip: 'Edit Student',
@@ -92,7 +85,10 @@ class StudentDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Profile Header Card
           Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -135,7 +131,22 @@ class StudentDetailScreen extends StatelessWidget {
                   ),
                   const Divider(height: 24),
                   _infoRow(Icons.person_outline, 'Guardian', s.guardianName),
-                  _phoneRow(context, s.guardianPhone, quickCallSmsEnabled),
+                  _detailedPhoneRow(
+                    context,
+                    label: 'Guardian Phone',
+                    phone: s.guardianPhone,
+                    recipientName: '${s.name} (Guardian: ${s.guardianName})',
+                    centerName: settings.centerName,
+                  ),
+                  if (s.studentPhone != null && s.studentPhone!.isNotEmpty)
+                    _detailedPhoneRow(
+                      context,
+                      label: 'Student Phone',
+                      phone: s.studentPhone!,
+                      recipientName: s.name,
+                      centerName: settings.centerName,
+                      isStudentPersonal: true,
+                    ),
                   if (s.address != null && s.address!.isNotEmpty)
                     _infoRow(Icons.location_on_outlined, 'Address', s.address!),
                   _infoRow(
@@ -152,6 +163,140 @@ class StudentDetailScreen extends StatelessWidget {
               ),
             ),
           ),
+
+          // Enrolled Subjects Card (if any selected)
+          if (enrolledSubjectNames.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.book_outlined, size: 18, color: kPrimary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Enrolled Subjects (${enrolledSubjectNames.length})',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: enrolledSubjectNames.map((name) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: kPrimary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: kPrimary.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check_circle_outline_rounded, size: 14, color: kPrimary),
+                              const SizedBox(width: 4),
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: kPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // Quick Multi-Channel Communication Action Box
+          const SizedBox(height: 14),
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.forum_outlined, size: 18, color: kPrimary),
+                      SizedBox(width: 8),
+                      Text(
+                        'Direct Communication',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _actionButton(
+                        icon: Icons.call,
+                        label: 'Call',
+                        color: const Color(0xFF10B981),
+                        onTap: () => ContactService.makePhoneCall(
+                          context,
+                          s.guardianPhone.isNotEmpty ? s.guardianPhone : (s.studentPhone ?? ''),
+                        ),
+                      ),
+                      _actionButton(
+                        icon: Icons.sms_rounded,
+                        label: 'SMS',
+                        color: const Color(0xFF2563EB),
+                        onTap: () => ContactService.sendSms(
+                          context,
+                          s.guardianPhone.isNotEmpty ? s.guardianPhone : (s.studentPhone ?? ''),
+                          body: 'Hello from ${settings.centerName}',
+                        ),
+                      ),
+                      _actionButton(
+                        icon: Icons.chat_rounded,
+                        label: 'WhatsApp',
+                        color: const Color(0xFF25D366),
+                        onTap: () => ContactService.openWhatsApp(
+                          context,
+                          s.guardianPhone.isNotEmpty ? s.guardianPhone : (s.studentPhone ?? ''),
+                          message: 'Hello from ${settings.centerName} regarding student ${s.name}',
+                        ),
+                      ),
+                      _actionButton(
+                        icon: Icons.send_rounded,
+                        label: 'Telegram',
+                        color: const Color(0xFF0088CC),
+                        onTap: () => ContactService.openTelegram(
+                          context,
+                          s.guardianPhone.isNotEmpty ? s.guardianPhone : (s.studentPhone ?? ''),
+                          message: 'Hello from ${settings.centerName} regarding student ${s.name}',
+                        ),
+                      ),
+                      _actionButton(
+                        icon: Icons.contacts_rounded,
+                        label: 'Save',
+                        color: const Color(0xFF8B5CF6),
+                        onTap: () => _saveContact(context, s, settings.centerName),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 16),
           Row(
             children: [
@@ -245,6 +390,43 @@ class StudentDetailScreen extends StatelessWidget {
     );
   }
 
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _printOrGiveReceipt(
     BuildContext context,
     dynamic payment,
@@ -286,30 +468,78 @@ class StudentDetailScreen extends StatelessWidget {
     }
   }
 
-  Widget _phoneRow(BuildContext context, String phone, bool showActions) {
+  void _saveContact(BuildContext context, dynamic student, String centerName) {
+    final phone = (student.guardianPhone as String).isNotEmpty
+        ? student.guardianPhone as String
+        : (student.studentPhone as String? ?? '');
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number available to save.')),
+      );
+      return;
+    }
+    ContactService.saveContactToDevice(
+      context,
+      name: '${student.name} (${student.roll})',
+      phone: phone,
+      organization: centerName,
+      role: 'Student / Guardian',
+      note: 'Guardian: ${student.guardianName}',
+    );
+  }
+
+  Widget _detailedPhoneRow(
+    BuildContext context, {
+    required String label,
+    required String phone,
+    required String recipientName,
+    required String centerName,
+    bool isStudentPersonal = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          const Icon(Icons.phone_outlined, size: 18, color: Colors.grey),
+          Icon(
+            isStudentPersonal ? Icons.phone_android_rounded : Icons.phone_outlined,
+            size: 18,
+            color: Colors.grey,
+          ),
           const SizedBox(width: 10),
-          const Text('Phone: ', style: TextStyle(color: Colors.grey)),
+          Text('$label: ', style: const TextStyle(color: Colors.grey)),
           Expanded(
             child: Text(
               phone.isEmpty ? '-' : phone,
               overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
-          if (showActions && phone.isNotEmpty) ...[
+          if (phone.isNotEmpty) ...[
             IconButton(
-              icon: const Icon(Icons.call, size: 20, color: kAccentGreen),
-              tooltip: 'Call',
+              icon: const Icon(Icons.call, size: 18, color: Color(0xFF10B981)),
+              tooltip: 'Call $label',
+              visualDensity: VisualDensity.compact,
               onPressed: () => ContactService.makePhoneCall(context, phone),
             ),
             IconButton(
-              icon: const Icon(Icons.sms, size: 20, color: kPrimary),
-              tooltip: 'SMS',
-              onPressed: () => ContactService.sendSms(context, phone),
+              icon: const Icon(Icons.chat, size: 18, color: Color(0xFF25D366)),
+              tooltip: 'WhatsApp $label',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => ContactService.openWhatsApp(
+                context,
+                phone,
+                message: 'Hello from $centerName regarding $recipientName',
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.send, size: 18, color: Color(0xFF0088CC)),
+              tooltip: 'Telegram $label',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => ContactService.openTelegram(
+                context,
+                phone,
+                message: 'Hello from $centerName regarding $recipientName',
+              ),
             ),
           ],
         ],
@@ -390,3 +620,4 @@ class StudentDetailScreen extends StatelessWidget {
     );
   }
 }
+

@@ -54,5 +54,35 @@ class ShareService {
     }
   }
 
+  /// Opens Telegram chat or share dialog with pre-filled message.
+  static Future<bool> openTelegramChat({
+    String? phone,
+    required String message,
+  }) async {
+    Uri uri;
+    if (phone != null && phone.isNotEmpty) {
+      final cleaned = phone.replaceAll(RegExp(r'[^0-9]'), '');
+      final intl = (cleaned.startsWith('01') && cleaned.length == 11) ? '88$cleaned' : cleaned;
+      uri = Uri.parse('https://t.me/+$intl');
+    } else {
+      uri = Uri.parse(
+        'https://t.me/share/url?url=&text=${Uri.encodeComponent(message)}',
+      );
+    }
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        final fallback = Uri.parse(
+          'https://t.me/share/url?url=&text=${Uri.encodeComponent(message)}',
+        );
+        return await launchUrl(fallback, mode: LaunchMode.externalApplication);
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static bool fileExists(String path) => File(path).existsSync();
 }
+

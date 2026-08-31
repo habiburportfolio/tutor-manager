@@ -6,6 +6,8 @@ class Student {
   String sectionId;
   String guardianName;
   String guardianPhone;
+  String? studentPhone; // optional student's personal phone number
+  List<String> subjectIds; // optional list of enrolled subjects
   String? address;
   double
   monthlyFee; // fee assigned to this student (can differ from class default)
@@ -22,6 +24,8 @@ class Student {
     required this.sectionId,
     required this.guardianName,
     required this.guardianPhone,
+    this.studentPhone,
+    this.subjectIds = const [],
     this.address,
     this.monthlyFee = 0,
     required this.admissionDate,
@@ -38,6 +42,8 @@ class Student {
     'sectionId': sectionId,
     'guardianName': guardianName,
     'guardianPhone': guardianPhone,
+    'studentPhone': studentPhone,
+    'subjectIds': subjectIds,
     'address': address,
     'monthlyFee': monthlyFee,
     'admissionDate': admissionDate.toIso8601String(),
@@ -54,6 +60,8 @@ class Student {
     sectionId: map['sectionId'] as String,
     guardianName: map['guardianName']?.toString() ?? '',
     guardianPhone: map['guardianPhone']?.toString() ?? '',
+    studentPhone: map['studentPhone']?.toString(),
+    subjectIds: (map['subjectIds'] as List?)?.map((e) => e.toString()).toList() ?? [],
     address: map['address']?.toString(),
     monthlyFee: (map['monthlyFee'] as num?)?.toDouble() ?? 0,
     admissionDate:
@@ -64,3 +72,4 @@ class Student {
     notes: map['notes']?.toString(),
   );
 }
+

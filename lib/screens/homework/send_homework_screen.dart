@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -27,9 +28,51 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
   final Set<String> _selectedStudentIds = {};
   final List<String> _attachmentPaths = [];
   final List<String> _attachmentNames = [];
+  final List<int> _attachmentSizes = [];
   bool _viaSms = false;
   bool _viaShare = true; // WhatsApp / Messenger / others via native share
+  bool _viaTelegram = false;
   bool _sending = false;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes <= 0) return '0 B';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  IconData _getFileIcon(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+      return Icons.image_rounded;
+    } else if (ext == 'pdf') {
+      return Icons.picture_as_pdf_rounded;
+    } else if (['doc', 'docx'].contains(ext)) {
+      return Icons.description_rounded;
+    } else if (ext == 'txt') {
+      return Icons.text_snippet_rounded;
+    }
+    return Icons.insert_drive_file_rounded;
+  }
+
+  Color _getFileColor(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+      return Colors.purple;
+    } else if (ext == 'pdf') {
+      return Colors.red;
+    } else if (['doc', 'docx'].contains(ext)) {
+      return Colors.blue;
+    }
+    return kPrimary;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +96,10 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
         children: [
           TextField(
             controller: _titleCtrl,
-            decoration: const InputDecoration(labelText: 'Homework Title *'),
+            decoration: const InputDecoration(
+              labelText: 'Homework Title *',
+              prefixIcon: Icon(Icons.assignment_outlined),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -61,12 +107,16 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
             maxLines: 3,
             decoration: const InputDecoration(
               labelText: 'Description / Instructions',
+              prefixIcon: Icon(Icons.notes_rounded),
             ),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _classId,
-            decoration: const InputDecoration(labelText: 'Class *'),
+            decoration: const InputDecoration(
+              labelText: 'Class *',
+              prefixIcon: Icon(Icons.school_outlined),
+            ),
             items: academic.classes
                 .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
                 .toList(),
@@ -82,6 +132,7 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
             initialValue: _sectionId,
             decoration: const InputDecoration(
               labelText: 'Section (optional = all)',
+              prefixIcon: Icon(Icons.grid_view_rounded),
             ),
             items: sections
                 .map(
@@ -99,7 +150,10 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _subjectId,
-            decoration: const InputDecoration(labelText: 'Subject *'),
+            decoration: const InputDecoration(
+              labelText: 'Subject *',
+              prefixIcon: Icon(Icons.book_outlined),
+            ),
             items: subjects
                 .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
                 .toList(),
@@ -134,7 +188,7 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
               ],
             ),
             Container(
-              constraints: const BoxConstraints(maxHeight: 260),
+              constraints: const BoxConstraints(maxHeight: 240),
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey.shade300),
                 borderRadius: BorderRadius.circular(12),
@@ -167,47 +221,214 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
                     ),
             ),
           ],
-          const SizedBox(height: 16),
-          Text(
-            'Attachments (Images, PDF, DOC, Word)',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          const SizedBox(height: 18),
+
+          // File Attachment Section with Clear Attached Confirmation Feedback
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              ..._attachmentNames.asMap().entries.map(
-                (e) => Chip(
-                  label: Text(e.value, overflow: TextOverflow.ellipsis),
-                  onDeleted: () => setState(() {
-                    _attachmentPaths.removeAt(e.key);
-                    _attachmentNames.removeAt(e.key);
-                  }),
-                ),
+              const Text(
+                'File Attachments (Image, PDF, DOC)',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
-              ActionChip(
-                avatar: const Icon(Icons.attach_file, size: 18),
-                label: const Text('Add File'),
+              TextButton.icon(
                 onPressed: _pickFile,
+                icon: const Icon(Icons.attach_file_rounded, size: 18),
+                label: const Text('Attach File'),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Text('Send Via', style: const TextStyle(fontWeight: FontWeight.w600)),
-          CheckboxListTile(
-            value: _viaSms,
-            title: const Text('SMS (GP / Robi / any configured provider)'),
-            subtitle: const Text(
-              'Text-only notification with homework summary',
+          const SizedBox(height: 6),
+
+          if (_attachmentPaths.isEmpty)
+            InkWell(
+              onTap: _pickFile,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.grey.shade300,
+                    style: BorderStyle.solid,
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey.shade50,
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.cloud_upload_outlined, size: 36, color: Colors.grey.shade500),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'No files attached yet',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap to attach Images, PDF, DOC or Word files',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            // Success Confirmation Banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '✓ ${_attachmentPaths.length} file(s) attached successfully (Ready to send)',
+                      style: const TextStyle(
+                        color: Color(0xFF047857),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _pickFile,
+                    child: const Text(
+                      '+ Add More',
+                      style: TextStyle(
+                        color: Color(0xFF047857),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            onChanged: (v) => setState(() => _viaSms = v ?? false),
-          ),
+
+            // Attached Files List Cards
+            ...List.generate(_attachmentPaths.length, (index) {
+              final fileName = _attachmentNames[index];
+              final size = _attachmentSizes.length > index ? _attachmentSizes[index] : 0;
+              final color = _getFileColor(fileName);
+              final icon = _getFileIcon(fileName);
+
+              return Card(
+                elevation: 1,
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFF10B981), width: 1),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  title: Text(
+                    fileName,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '✓ Attached',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF047857),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatFileSize(size),
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                    tooltip: 'Remove attachment',
+                    onPressed: () {
+                      setState(() {
+                        _attachmentPaths.removeAt(index);
+                        _attachmentNames.removeAt(index);
+                        if (_attachmentSizes.length > index) {
+                          _attachmentSizes.removeAt(index);
+                        }
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Removed "$fileName"'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            }),
+          ],
+
+          const SizedBox(height: 18),
+          const Text('Send Channels', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           CheckboxListTile(
             value: _viaShare,
-            title: const Text('WhatsApp, Telegram, Facebook, Messenger'),
-            subtitle: const Text('Opens share menu to select any social app'),
+            activeColor: kPrimary,
+            title: const Row(
+              children: [
+                Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 20),
+                SizedBox(width: 8),
+                Text('WhatsApp & Share Menu'),
+              ],
+            ),
+            subtitle: const Text('Direct share with file attachments to WhatsApp/groups'),
             onChanged: (v) => setState(() => _viaShare = v ?? false),
+          ),
+          CheckboxListTile(
+            value: _viaTelegram,
+            activeColor: const Color(0xFF0088CC),
+            title: const Row(
+              children: [
+                Icon(Icons.send_rounded, color: Color(0xFF0088CC), size: 20),
+                SizedBox(width: 8),
+                Text('Telegram'),
+              ],
+            ),
+            subtitle: const Text('Broadcast homework message via Telegram chat/channels'),
+            onChanged: (v) => setState(() => _viaTelegram = v ?? false),
+          ),
+          CheckboxListTile(
+            value: _viaSms,
+            activeColor: kPrimary,
+            title: const Row(
+              children: [
+                Icon(Icons.sms_rounded, color: Color(0xFF2563EB), size: 20),
+                SizedBox(width: 8),
+                Text('SMS Notification'),
+              ],
+            ),
+            subtitle: const Text('Text alert with homework title & description'),
+            onChanged: (v) => setState(() => _viaSms = v ?? false),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
@@ -228,6 +449,7 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
                   : 'Send to ${_selectedStudentIds.length} Student(s)',
             ),
           ),
+          const SizedBox(height: 30),
         ],
       ),
     );
@@ -242,12 +464,28 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
     if (result != null) {
       setState(() {
         for (final f in result.files) {
-          if (f.path != null) {
+          if (f.path != null && !_attachmentPaths.contains(f.path)) {
             _attachmentPaths.add(f.path!);
             _attachmentNames.add(f.name);
+            int size = f.size;
+            if (size == 0) {
+              try {
+                size = File(f.path!).lengthSync();
+              } catch (_) {}
+            }
+            _attachmentSizes.add(size);
           }
         }
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ ${result.files.length} file(s) attached successfully!'),
+            backgroundColor: const Color(0xFF10B981),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -290,9 +528,14 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
       sentVia.add('SMS');
     }
 
+    if (_viaTelegram) {
+      await ShareService.openTelegramChat(message: message);
+      sentVia.add('Telegram');
+    }
+
     if (_viaShare) {
       await ShareService.shareFiles(text: message, filePaths: _attachmentPaths);
-      sentVia.add('WhatsApp/Messenger/Share');
+      sentVia.add('WhatsApp/Share');
     }
 
     await hwProv.addHomework(
@@ -321,3 +564,4 @@ class _SendHomeworkScreenState extends State<SendHomeworkScreen> {
     }
   }
 }
+
