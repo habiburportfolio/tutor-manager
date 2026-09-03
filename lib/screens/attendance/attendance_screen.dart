@@ -155,7 +155,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     final sections = _selectedClassId != null
         ? academic.sectionsForClass(_selectedClassId!)
-        : [];
+        : const <dynamic>[];
 
     final activeStudents = studentProv.students.where((s) {
       if (!s.isActive) return false;
@@ -312,7 +312,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         ),
                         items: academic.classes
-                            .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                            .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name)))
                             .toList(),
                         onChanged: (v) {
                           setState(() {
@@ -333,7 +333,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         ),
                         items: sections
-                            .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
+                            .map((s) => DropdownMenuItem<String>(value: s.id as String, child: Text(s.name as String)))
                             .toList(),
                         onChanged: (v) {
                           setState(() => _selectedSectionId = v);

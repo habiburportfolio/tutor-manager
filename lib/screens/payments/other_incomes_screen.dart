@@ -285,7 +285,7 @@ class _OtherIncomesScreenState extends State<OtherIncomesScreen> {
                     value: category,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: _kOtherIncomeCategories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .map((c) => DropdownMenuItem<String>(value: c, child: Text(c)))
                         .toList(),
                     onChanged: (v) => setState(() => category = v ?? category),
                   ),
@@ -294,7 +294,7 @@ class _OtherIncomesScreenState extends State<OtherIncomesScreen> {
                     value: method,
                     decoration: const InputDecoration(labelText: 'Payment Method'),
                     items: ['Cash', 'bKash', 'Nagad', 'Rocket', 'Bank / Card', 'Online']
-                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .map((m) => DropdownMenuItem<String>(value: m, child: Text(m)))
                         .toList(),
                     onChanged: (v) => setState(() => method = v ?? method),
                   ),

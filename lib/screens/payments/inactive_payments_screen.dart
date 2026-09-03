@@ -327,7 +327,7 @@ class _InactivePaymentsScreenState extends State<InactivePaymentsScreen> {
                     value: method,
                     decoration: const InputDecoration(labelText: 'Payment Method'),
                     items: ['Cash', 'bKash', 'Nagad', 'Rocket', 'Bank / Card', 'Online']
-                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .map((m) => DropdownMenuItem<String>(value: m, child: Text(m)))
                         .toList(),
                     onChanged: (v) => setState(() => method = v ?? method),
                   ),
