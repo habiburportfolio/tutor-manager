@@ -171,6 +171,10 @@ class BackupService {
         return 'Settings';
       case DBService.meetingsBox:
         return 'Meetings';
+      case DBService.attendanceBox:
+        return 'Attendance';
+      case DBService.otherIncomeBox:
+        return 'Other Income';
       default:
         return boxName;
     }

@@ -8,6 +8,7 @@ import 'providers/homework_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/meeting_provider.dart';
 import 'providers/language_provider.dart';
+import 'providers/attendance_provider.dart';
 import 'utils/theme.dart';
 import 'screens/root_shell.dart';
 
@@ -31,6 +32,7 @@ class TutorManagerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => MeetingProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
+        ChangeNotifierProvider(create: (_) => AttendanceProvider()),
       ],
       child: MaterialApp(
         title: 'Tutor Manager',

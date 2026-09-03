@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/payment.dart';
 import '../models/expense.dart';
+import '../models/other_income.dart';
 import '../services/db_service.dart';
 
 enum ReportRange { daily, weekly, monthly, yearly }
@@ -11,9 +12,11 @@ class FinanceProvider extends ChangeNotifier {
 
   List<Payment> _payments = [];
   List<Expense> _expenses = [];
+  List<OtherIncome> _otherIncomes = [];
 
   List<Payment> get payments => List.unmodifiable(_payments);
   List<Expense> get expenses => List.unmodifiable(_expenses);
+  List<OtherIncome> get otherIncomes => List.unmodifiable(_otherIncomes);
 
   FinanceProvider() {
     _load();
@@ -26,6 +29,7 @@ class FinanceProvider extends ChangeNotifier {
   void _load() {
     final pBox = DBService.box(DBService.paymentsBox);
     final eBox = DBService.box(DBService.expensesBox);
+    final oBox = DBService.box(DBService.otherIncomeBox);
 
     _payments =
         pBox.values
@@ -39,16 +43,22 @@ class FinanceProvider extends ChangeNotifier {
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
 
+    _otherIncomes =
+        oBox.values
+            .map((e) => OtherIncome.fromMap(Map<String, dynamic>.from(e)))
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
+
     notifyListeners();
   }
 
-  String _generateReceiptNo() {
+  String _generateReceiptNo([String prefix = 'RCT']) {
     final now = DateTime.now();
-    final count = _payments.length + 1;
-    return 'RCT-${now.year}${now.month.toString().padLeft(2, '0')}-${count.toString().padLeft(4, '0')}';
+    final count = _payments.length + _otherIncomes.length + 1;
+    return '$prefix-${now.year}${now.month.toString().padLeft(2, '0')}-${count.toString().padLeft(4, '0')}';
   }
 
-  // ---------------- Payments (Income) ----------------
+  // ---------------- Payments (Student Income) ----------------
   Future<Payment> addPayment({
     required String studentId,
     required double amount,
@@ -66,13 +76,21 @@ class FinanceProvider extends ChangeNotifier {
       method: method,
       monthFor: monthFor,
       note: note,
-      receiptNo: _generateReceiptNo(),
+      receiptNo: _generateReceiptNo('RCT'),
       receiptGiven: receiptGiven,
     );
     await DBService.box(DBService.paymentsBox).put(p.id, p.toMap());
     _payments.insert(0, p);
     notifyListeners();
     return p;
+  }
+
+  Future<void> updatePayment(Payment p) async {
+    await DBService.box(DBService.paymentsBox).put(p.id, p.toMap());
+    final idx = _payments.indexWhere((x) => x.id == p.id);
+    if (idx != -1) _payments[idx] = p;
+    _payments.sort((a, b) => b.date.compareTo(a.date));
+    notifyListeners();
   }
 
   Future<void> deletePayment(String id) async {
@@ -82,8 +100,7 @@ class FinanceProvider extends ChangeNotifier {
   }
 
   /// Marks whether the printed money receipt has been physically given to
-  /// the guardian/student for the given payment. This can be toggled at
-  /// any time, independent of when the payment was originally recorded.
+  /// the guardian/student for the given payment.
   Future<void> markReceiptGiven(String paymentId, bool given) async {
     final idx = _payments.indexWhere((p) => p.id == paymentId);
     if (idx == -1) return;
@@ -107,6 +124,53 @@ class FinanceProvider extends ChangeNotifier {
 
   double totalPaidByStudent(String studentId) =>
       paymentsForStudent(studentId).fold(0.0, (sum, p) => sum + p.amount);
+
+  // ---------------- Other Incomes (Miscellaneous Income) ----------------
+  Future<OtherIncome> addOtherIncome({
+    required String title,
+    required double amount,
+    String category = 'Other',
+    String method = 'Cash',
+    String? note,
+    DateTime? date,
+  }) async {
+    final o = OtherIncome(
+      id: _uuid.v4(),
+      title: title,
+      amount: amount,
+      date: date ?? DateTime.now(),
+      category: category,
+      method: method,
+      note: note,
+      receiptNo: _generateReceiptNo('OTH'),
+    );
+    await DBService.box(DBService.otherIncomeBox).put(o.id, o.toMap());
+    _otherIncomes.insert(0, o);
+    notifyListeners();
+    return o;
+  }
+
+  Future<void> updateOtherIncome(OtherIncome o) async {
+    await DBService.box(DBService.otherIncomeBox).put(o.id, o.toMap());
+    final idx = _otherIncomes.indexWhere((x) => x.id == o.id);
+    if (idx != -1) _otherIncomes[idx] = o;
+    _otherIncomes.sort((a, b) => b.date.compareTo(a.date));
+    notifyListeners();
+  }
+
+  Future<void> deleteOtherIncome(String id) async {
+    await DBService.box(DBService.otherIncomeBox).delete(id);
+    _otherIncomes.removeWhere((o) => o.id == id);
+    notifyListeners();
+  }
+
+  OtherIncome? otherIncomeById(String id) {
+    try {
+      return _otherIncomes.firstWhere((o) => o.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ---------------- Expenses ----------------
   Future<Expense> addExpense({
@@ -148,13 +212,14 @@ class FinanceProvider extends ChangeNotifier {
   bool _inRange(DateTime d, DateTime start, DateTime end) =>
       !d.isBefore(start) && d.isBefore(end);
 
-  DateTimeRange rangeFor(ReportRange range, DateTime anchor) {
+  DateTimeRange rangeFor(ReportRange range, [DateTime? anchor]) {
+    final a = anchor ?? DateTime.now();
     switch (range) {
       case ReportRange.daily:
-        final start = DateTime(anchor.year, anchor.month, anchor.day);
+        final start = DateTime(a.year, a.month, a.day);
         return DateTimeRange(start, start.add(const Duration(days: 1)));
       case ReportRange.weekly:
-        final startOfWeek = anchor.subtract(Duration(days: anchor.weekday - 1));
+        final startOfWeek = a.subtract(Duration(days: a.weekday - 1));
         final start = DateTime(
           startOfWeek.year,
           startOfWeek.month,
@@ -162,39 +227,87 @@ class FinanceProvider extends ChangeNotifier {
         );
         return DateTimeRange(start, start.add(const Duration(days: 7)));
       case ReportRange.monthly:
-        final start = DateTime(anchor.year, anchor.month, 1);
-        final end = DateTime(anchor.year, anchor.month + 1, 1);
+        final start = DateTime(a.year, a.month, 1);
+        final end = DateTime(a.year, a.month + 1, 1);
         return DateTimeRange(start, end);
       case ReportRange.yearly:
-        final start = DateTime(anchor.year, 1, 1);
-        final end = DateTime(anchor.year + 1, 1, 1);
+        final start = DateTime(a.year, 1, 1);
+        final end = DateTime(a.year + 1, 1, 1);
         return DateTimeRange(start, end);
     }
   }
 
-  double incomeInRange(DateTime start, DateTime end) => _payments
+  double studentIncomeInRange(DateTime start, DateTime end) => _payments
       .where((p) => _inRange(p.date, start, end))
       .fold(0.0, (sum, p) => sum + p.amount);
+
+  double otherIncomeInRange(DateTime start, DateTime end) => _otherIncomes
+      .where((o) => _inRange(o.date, start, end))
+      .fold(0.0, (sum, o) => sum + o.amount);
+
+  double incomeInRange(DateTime start, DateTime end) =>
+      studentIncomeInRange(start, end) + otherIncomeInRange(start, end);
 
   double expenseInRange(DateTime start, DateTime end) => _expenses
       .where((e) => _inRange(e.date, start, end))
       .fold(0.0, (sum, e) => sum + e.amount);
 
   double incomeFor(ReportRange range, [DateTime? anchor]) {
-    final r = rangeFor(range, anchor ?? DateTime.now());
+    final r = rangeFor(range, anchor);
     return incomeInRange(r.start, r.end);
   }
 
+  double studentIncomeFor(ReportRange range, [DateTime? anchor]) {
+    final r = rangeFor(range, anchor);
+    return studentIncomeInRange(r.start, r.end);
+  }
+
+  double otherIncomeFor(ReportRange range, [DateTime? anchor]) {
+    final r = rangeFor(range, anchor);
+    return otherIncomeInRange(r.start, r.end);
+  }
+
   double expenseFor(ReportRange range, [DateTime? anchor]) {
-    final r = rangeFor(range, anchor ?? DateTime.now());
+    final r = rangeFor(range, anchor);
     return expenseInRange(r.start, r.end);
   }
 
   double profitFor(ReportRange range, [DateTime? anchor]) =>
       incomeFor(range, anchor) - expenseFor(range, anchor);
 
+  List<Payment> paymentsForRange(ReportRange range, [DateTime? anchor]) {
+    final r = rangeFor(range, anchor);
+    return _payments.where((p) => _inRange(p.date, r.start, r.end)).toList();
+  }
+
+  List<OtherIncome> otherIncomesForRange(ReportRange range, [DateTime? anchor]) {
+    final r = rangeFor(range, anchor);
+    return _otherIncomes.where((o) => _inRange(o.date, r.start, r.end)).toList();
+  }
+
+  List<Expense> expensesForRange(ReportRange range, [DateTime? anchor, String? category]) {
+    final r = rangeFor(range, anchor);
+    return _expenses.where((e) {
+      final matchesRange = _inRange(e.date, r.start, r.end);
+      if (category != null && category.isNotEmpty) {
+        return matchesRange && e.category.toLowerCase() == category.toLowerCase();
+      }
+      return matchesRange;
+    }).toList();
+  }
+
+  Map<String, double> categoryExpenseBreakdown(ReportRange range, [DateTime? anchor]) {
+    final r = rangeFor(range, anchor);
+    final map = <String, double>{};
+    for (final e in _expenses) {
+      if (_inRange(e.date, r.start, r.end)) {
+        map[e.category] = (map[e.category] ?? 0.0) + e.amount;
+      }
+    }
+    return map;
+  }
+
   /// Returns list of (label, income, expense) for the last [count] periods
-  /// e.g. last 7 days, last 4 weeks, last 6 months, last 5 years
   List<PeriodStat> trend(ReportRange range, int count) {
     final now = DateTime.now();
     final List<PeriodStat> result = [];

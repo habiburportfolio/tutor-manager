@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/academic_provider.dart';
 import '../../providers/student_provider.dart';
 import '../../utils/theme.dart';
+import '../attendance/attendance_screen.dart';
 
 class ClassDetailScreen extends StatefulWidget {
   final String classId;
@@ -19,16 +20,6 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
   @override
   void initState() {
     super.initState();
-    // NOTE: We manage our own TabController (instead of relying on
-    // DefaultTabController.of(context)) because the FAB below lives in the
-    // same build() as the tab bar itself. DefaultTabController.of(context)
-    // requires `context` to be a DESCENDANT of DefaultTabController, but the
-    // context available to the FAB's onPressed here is this widget's own
-    // build context (an ANCESTOR of DefaultTabController, since it creates
-    // it). That mismatch caused `DefaultTabController.of(context)` to throw
-    // at runtime and silently swallow the "Add" tap - this is the root cause
-    // of the "can't add section/subject" bug. Using an explicit
-    // TabController avoids this pitfall entirely.
     _tabController = TabController(length: 2, vsync: this);
   }
 
@@ -56,6 +47,18 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(cls.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.how_to_reg_rounded),
+            tooltip: 'Class Hajira (হাজিরা)',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AttendanceScreen(initialClassId: widget.classId),
+              ),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -99,9 +102,27 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
             leading: const Icon(Icons.groups_rounded, color: kPrimary),
             title: Text('Section ${sec.name}'),
             subtitle: Text('$count student(s)'),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: kAccentRed),
-              onPressed: () => academic.deleteSection(sec.id),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.how_to_reg_rounded, color: kPrimary),
+                  tooltip: 'Section Hajira (হাজিরা)',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AttendanceScreen(
+                        initialClassId: widget.classId,
+                        initialSectionId: sec.id,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: kAccentRed),
+                  onPressed: () => academic.deleteSection(sec.id),
+                ),
+              ],
             ),
           ),
         );

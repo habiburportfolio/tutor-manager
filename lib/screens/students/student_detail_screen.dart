@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../providers/student_provider.dart';
 import '../../providers/academic_provider.dart';
 import '../../providers/finance_provider.dart';
+import '../../providers/attendance_provider.dart';
+import '../../models/payment.dart';
 import '../../utils/theme.dart';
 import '../../utils/formatters.dart';
 import '../../utils/due_calculator.dart';
@@ -11,6 +13,7 @@ import '../../services/contact_service.dart';
 import '../../providers/settings_provider.dart';
 import '../payments/add_payment_screen.dart';
 import '../payments/receipt_preview_screen.dart';
+import '../attendance/attendance_screen.dart';
 import 'add_edit_student_screen.dart';
 
 class StudentDetailScreen extends StatelessWidget {
@@ -45,6 +48,9 @@ class StudentDetailScreen extends StatelessWidget {
         .map((id) => academic.subjectById(id)?.name)
         .whereType<String>()
         .toList();
+
+    final attendanceProv = context.watch<AttendanceProvider>();
+    final attendanceStats = attendanceProv.getStudentStats(s.id);
 
     return Scaffold(
       appBar: AppBar(
@@ -158,6 +164,66 @@ class StudentDetailScreen extends StatelessWidget {
                     Icons.attach_money_outlined,
                     'Monthly Fee',
                     fmtMoney(s.monthlyFee),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Attendance Summary Card
+          const SizedBox(height: 12),
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.how_to_reg_rounded, size: 18, color: kPrimary),
+                          SizedBox(width: 8),
+                          Text(
+                            'Attendance (হাজিরা)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AttendanceScreen(
+                              initialClassId: s.classId,
+                              initialSectionId: s.sectionId,
+                            ),
+                          ),
+                        ),
+                        child: const Text(
+                          'Mark Hajira →',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: kPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _attendanceBadge('Rate', '${attendanceStats.percentage.toStringAsFixed(0)}%', kPrimary),
+                      _attendanceBadge('Present', '${attendanceStats.present}', kAccentGreen),
+                      _attendanceBadge('Absent', '${attendanceStats.absent}', kAccentRed),
+                      _attendanceBadge('Late', '${attendanceStats.late}', kAccentOrange),
+                      _attendanceBadge('Leave', '${attendanceStats.leave}', Colors.blue),
+                    ],
                   ),
                 ],
               ),
@@ -369,17 +435,35 @@ class StudentDetailScreen extends StatelessWidget {
                     '${p.receiptGiven ? "Receipt given" : "Receipt NOT given yet"}',
                   ),
                   isThreeLine: true,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.print_outlined, color: kPrimary),
-                    tooltip: 'Print / Give Receipt',
-                    onPressed: () => _printOrGiveReceipt(
-                      context,
-                      p,
-                      s,
-                      cls,
-                      sec,
-                      finance,
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.print_outlined, color: kPrimary),
+                        tooltip: 'Print / Give Receipt',
+                        onPressed: () => _printOrGiveReceipt(
+                          context,
+                          p,
+                          s,
+                          cls,
+                          sec,
+                          finance,
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        onSelected: (v) {
+                          if (v == 'edit') {
+                            _showEditPaymentDialog(context, p, finance);
+                          } else if (v == 'delete') {
+                            _confirmDeletePayment(context, p.id, finance);
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(value: 'edit', child: Text('Edit Payment')),
+                          const PopupMenuItem(value: 'delete', child: Text('Delete Payment')),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -616,6 +700,162 @@ class StudentDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _attendanceBadge(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
+  void _showEditPaymentDialog(BuildContext context, Payment payment, FinanceProvider finance) {
+    final amountCtrl = TextEditingController(text: payment.amount.toString());
+    final noteCtrl = TextEditingController(text: payment.note ?? '');
+    final monthCtrl = TextEditingController(text: payment.monthFor ?? '');
+    String method = payment.method;
+    DateTime date = payment.date;
+    bool receiptGiven = payment.receiptGiven;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          Future<void> pickDate() async {
+            final picked = await showDatePicker(
+              context: ctx,
+              initialDate: date,
+              firstDate: DateTime(2015),
+              lastDate: DateTime(2100),
+            );
+            if (picked != null) setState(() => date = picked);
+          }
+
+          return AlertDialog(
+            title: const Text('Edit Payment'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Amount *'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: method,
+                    decoration: const InputDecoration(labelText: 'Payment Method'),
+                    items: ['Cash', 'bKash', 'Nagad', 'Rocket', 'Bank / Card', 'Online']
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
+                    onChanged: (v) => setState(() => method = v ?? method),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: monthCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Fee Month (e.g. 2026-03)',
+                      hintText: 'YYYY-MM',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: pickDate,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Date',
+                        suffixIcon: Icon(Icons.calendar_month_rounded),
+                      ),
+                      child: Text(fmtDate(date)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteCtrl,
+                    decoration: const InputDecoration(labelText: 'Note (optional)'),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Receipt Given', style: TextStyle(fontSize: 14)),
+                    value: receiptGiven,
+                    onChanged: (v) => setState(() => receiptGiven = v),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final amount = double.tryParse(amountCtrl.text.trim());
+                  if (amount == null || amount <= 0) return;
+
+                  payment.amount = amount;
+                  payment.method = method;
+                  payment.monthFor = monthCtrl.text.trim().isEmpty ? null : monthCtrl.text.trim();
+                  payment.date = date;
+                  payment.note = noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim();
+                  payment.receiptGiven = receiptGiven;
+
+                  finance.updatePayment(payment);
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Payment updated successfully')),
+                  );
+                },
+                child: const Text('Save Changes'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _confirmDeletePayment(BuildContext context, String id, FinanceProvider finance) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Payment Record?'),
+        content: const Text(
+          'Are you sure you want to permanently delete this payment? This will update due and income calculations.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              finance.deletePayment(id);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Payment deleted successfully')),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: kAccentRed)),
+          ),
+        ],
       ),
     );
   }

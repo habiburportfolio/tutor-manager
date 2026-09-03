@@ -15,6 +15,8 @@ class DBService {
   static const String homeworkBox = 'homework_box';
   static const String settingsBox = 'settings_box';
   static const String meetingsBox = 'meetings_box';
+  static const String attendanceBox = 'attendance_box';
+  static const String otherIncomeBox = 'other_income_box';
 
   /// All box names known to the app - used by BackupService to export/
   /// import every piece of stored data generically.
@@ -28,6 +30,8 @@ class DBService {
     homeworkBox,
     settingsBox,
     meetingsBox,
+    attendanceBox,
+    otherIncomeBox,
   ];
 
   static Future<void> init() async {
@@ -42,6 +46,8 @@ class DBService {
       Hive.openBox(homeworkBox),
       Hive.openBox(settingsBox),
       Hive.openBox(meetingsBox),
+      Hive.openBox(attendanceBox),
+      Hive.openBox(otherIncomeBox),
     ]);
   }
 
